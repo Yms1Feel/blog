@@ -1,35 +1,14 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>My New Hugo Site</title>
+    <title>二十七号酒馆</title>
     <link>https://yms1feel.github.io/blog/</link>
-    <description>Recent content on My New Hugo Site</description>
+    <description>Recent content on 二十七号酒馆</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Thu, 23 Apr 2020 00:34:36 +0800</lastBuildDate>
     
 	<atom:link href="https://yms1feel.github.io/blog/index.xml" rel="self" type="application/rss+xml" />
     
-    
-    <item>
-      <title>Testttt</title>
-      <link>https://yms1feel.github.io/blog/testttt/</link>
-      <pubDate>Thu, 23 Apr 2020 00:34:36 +0800</pubDate>
-      
-      <guid>https://yms1feel.github.io/blog/testttt/</guid>
-      <description>二级标签 三级 啥打法是否卡号发哈萨克大富豪
-三级 二级 打法上开发计划案发时快递费</description>
-    </item>
-    
-    <item>
-      <title>Test 1</title>
-      <link>https://yms1feel.github.io/blog/posts/test-1/</link>
-      <pubDate>Thu, 23 Apr 2020 00:34:09 +0800</pubDate>
-      
-      <guid>https://yms1feel.github.io/blog/posts/test-1/</guid>
-      <description>s代发货发顺丰阿发就开始大富豪
-时代峰峻看手法上af啊发发哈发</description>
-    </item>
     
   </channel>
 </rss>
