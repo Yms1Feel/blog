@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MySQL索引 // 二十七号酒馆</title>
+
+    <meta charset="utf-8">
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    
+    
+    
+
+        <meta property="og:title" content="MySQL索引" />
+    <meta property="og:description" content="" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en" />
+    <meta property="og:url" content="https://yms1feel.github.io/blog/mysql/" />
+    
+
+    <link rel="shortcut icon" href="/favicon.ico">
+
+    <link href="https://yms1feel.github.io/blog/webfonts/ptserif/main.css" rel='stylesheet' type='text/css'>
+    <link href="https://yms1feel.github.io/blog/webfonts/source-code-pro/main.css" rel="stylesheet" type="text/css">
+
+    <link rel="stylesheet" href="https://yms1feel.github.io/blog/css/style.css">
+    
+
+    <meta name="generator" content="Hugo 0.67.1" />
+</head>
+
+
+<body>
+<div id="container">
+    <header id="header">
+    <div id="header-outer" class="outer">
+        <div id="header-inner" class="inner">
+            <a id="main-nav-toggle" class="nav-icon" href="javascript:;"></a>
+            <a id="logo" class="logo-text" href="https://yms1feel.github.io/blog/">二十七号酒馆</a>
+            <nav id="main-nav">
+                
+            </nav>
+            <nav id="sub-nav">
+                <div id="search-form-wrap">
+                </div>
+            </nav>
+        </div>
+    </div>
+</header>
+
+    <section id="main" class="outer">
+        <article class="article article-type-post" itemscope itemprop="blogPost">
+    <div class="article-inner">
+        
+        <header class="article-header">
+            <h1 class="article-title" itemprop="name">MySQL索引</h1>
+        </header>
+        
+        <div class="article-meta">
+            <a href="/blog/mysql/" class="article-date">
+                <time datetime='2020-05-01T23:32:51.000&#43;08:00' itemprop="datePublished">2020-05-01</time>
+            </a>
+            
+            
+            <div class="post-categories">
+                <div class="article-category">
+                    
+                    
+                    <a class="article-category-link" href="https://yms1feel.github.io/blog/categories/mysql">MySQL</a>
+                    
+                </div>
+            </div>
+            
+            
+        </div>
+        <div class="article-entry" itemprop="articleBody">
+            <h2 id="为什么需要索引">为什么需要索引</h2>
+<p>索引是一种数据结构，为了能够在大量数据中快速定位到想要查找的数据，提高数据查询的效率而设计，类似于书的目录。</p>
+<h2 id="为什么索引采用btree">为什么索引采用B+Tree</h2>
+<p><strong>数据的持久化以及持久化数据的查询其实是一个数据库最常见的需求，而数据的持久化就需要与磁盘、内存以及CPU 之间的交互。</strong></p>
+<p>由于存储介质的特性，磁盘本身存取就比主存慢很多，再加上机械运动耗费，大概要花费 <code>10ms</code> 左右的时间，磁盘的存取速度往往是主存的几百分之一，因此为了提高效率，要尽量减少磁盘I/O。</p>
+<p><strong>为了达到这个目的，磁盘往往不是严格按需读取，而是每次都会预读，即使只需要一个字节，磁盘也会从这个位置开始，顺序向后读取一定长度的数据放入内存。<strong>这样做的理论依据是计算机科学中著名的</strong>『局部性原理』</strong>:</p>
+<pre><code>局部性原理：当一个数据被用到时，其附近的数据也通常会马上被使用——程序运行期间所需要的数据通常比较集中。
+</code></pre><p>由于磁盘顺序读取的效率很高（不需要寻道时间，只需很少的旋转时间），速度可以达到 <code>40MB/s</code>，因此对于具有局部性的程序来说，预读可以提高I/O效率。</p>
+<p><strong>预读的长度一般为页的整倍数</strong>。页是计算机管理存储器的逻辑块，硬件及操作系统往往将主存和磁盘存储区分割为连续的大小相等的块，每个存储块称为一页（在许多操作系统中，页得大小通常为4k，mysql中的1页为16k）。</p>
+<pre><code>$ getconf PAGE_SIZE
+4096
+</code></pre><p><strong>主存和磁盘以页为单位交换数据</strong>。当程序要读取的数据不在主存中时，会触发一个缺页异常，此时系统会向磁盘发出读盘信号，磁盘会找到数据的起始位置并向后连续读取一页或几页载入内存中，然后异常返回，程序继续运行。</p>
+<h3 id="hash索引">Hash索引</h3>
+<h4 id="优点">优点</h4>
+<ul>
+<li>等值查询的场景时间复杂度是O(1)</li>
+</ul>
+<h4 id="缺点">缺点</h4>
+<ul>
+<li>
+<p>不支持范围查询，只能进行全表扫描并依次判断是否满足条件</p>
+</li>
+<li>
+<p>哈希索引<strong>没办法利用索引完成排序</strong></p>
+</li>
+<li>
+<p>在有大量重复键值的情况下，哈希索引的效率也是极低的（出现哈希碰撞问题）</p>
+</li>
+</ul>
+<h3 id="平衡二叉树索引">平衡二叉树索引</h3>
+<h4 id="优点-1">优点</h4>
+<ul>
+<li>查询的时间复杂度是O(logn)</li>
+<li>支持范围查询</li>
+<li>可以利用索引完成排序</li>
+</ul>
+<h4 id="缺点-1">缺点</h4>
+<ul>
+<li>
+<p>当数据量大的时候，树的高度会比较高，数据量大的时候，查询会比较慢</p>
+<pre><code>例如：100万的数据，二叉树的高度为20，如果使用二叉树来存储，单独访问一个行可能需要 20 个 10 ms 的时间，非常慢。
+</code></pre></li>
+<li>
+<p>每个节点只存储一个记录，可能导致一次查询有很多次磁盘I/O</p>
+</li>
+</ul>
+<h3 id="b树与b树索引">B树与B+树索引</h3>
+<p><img src="/images/B-Tree.png" alt="B树"></p>
+<p><img src="/images/B+Tree.png" alt="B+树"></p>
+<ul>
+<li><strong>B+ 树的磁盘读写代价更低</strong>。B+ 树的内部没有指向关键字具体信息，所以其内部节点相对 B 树更小，如果把所有关键字存放在同一块盘中，那么盘中所能容纳的关键字数量也越多，能够存储更多索引，一次性读入内存的需要查找的关键字也就越多，相应的，IO 读写次数就降低了。</li>
+<li><strong>树的查询效率更加稳定</strong>。B+ 树所有数据都存在于叶子节点，所有关键字查询的路径长度相同，每次数据的查询效率相当。而 B 树可能在非叶子节点就停止查找了，所以查询效率不够稳定。</li>
+<li><strong>B+ 树只需要去遍历叶子节点就可以实现整棵树的遍历</strong>。叶节点可以<strong>通过『指针』依次按顺序连接</strong>，可以直接在多个子节点之间进行跳转，这样能够节省大量的磁盘 I/O 时间；范围查找，定位min与max之后，中间叶子节点，就是结果集，不用中序回溯；也不需要在不同层级的节点之间对数据进行拼接和排序；通过一个 B+ 树最左侧的叶子节点，可以像链表一样遍历整个树中的全部数据，也可以引入双向链表保证倒序遍历时的性能。</li>
+</ul>
+<h2 id="索引相关名词">索引相关名词</h2>
+<h3 id="普通索引">普通索引</h3>
+<p>用表中的普通列构建的索引，没有任何限制</p>
+<h3 id="唯一索引">唯一索引</h3>
+<p>唯一索引列的值必须唯一，但允许有空值。如果是组合索引，则列值的组合必须唯一。</p>
+<h3 id="主键索引">主键索引</h3>
+<p>根据主键建立索引，不允许重复，不允许空值。</p>
+<h3 id="全文索引">全文索引</h3>
+<p>仅可用于MyISAM表，针对较大的数据，生成全文索引非常的消耗时间和空间（在生成FULLTEXT索引时，会为文本生成一份单词的清单，在索引时及根据这个单词的清单来索引）。</p>
+<h3 id="联合索引">联合索引</h3>
+<p>用多个列组合构建的索引，这多个列中的值不允许有空值。可以在创建表的时候指定，也可以修改表结构。</p>
+<p>为了更多的提高mysql效率可建立组合索引，遵循”最左前缀“原则。创建联合索引时应该将最常用（频率）作限制条件的列放在最左边，依次递减。</p>
+<h3 id="覆盖索引">覆盖索引</h3>
+<p>指从普通索引中就能直接获取到需要的记录，而不需要查找主键索引中的记录。</p>
+<p>使用覆盖索引的一个好处是因为普通索引不包括一条记录的整行信息，所以数据量较聚集索引要少，可以减少大量I/O操作。</p>
+<h3 id="聚集索引聚簇索引">聚集索引（聚簇索引）</h3>
+<p><!-- raw HTML omitted --><strong>因为无法同时将数据行存放在两个不同的地方，所以一个表只能一个聚簇索引</strong><!-- raw HTML omitted --></p>
+<p><strong>定义：数据行的物理顺序与列值（一般是主键的那一列）的逻辑顺序相同，一个表中只能拥有一个聚集索引。</strong></p>
+<ul>
+<li>如果定义了主键，Innodb会选择主键作为聚集索引</li>
+<li>如果没有定义主键，Innodb会选择不包含NULL值的唯一索引作为聚集索引</li>
+<li>如果也没有这样的唯一索引列，Innodb会选择内置6字节长的rowID作为隐含的聚集索引，RowId会随着记录的写入而主键自增，但是它是不可引用和查看的，是数据库引擎内部的使用。</li>
+</ul>
+<h4 id="为什么主键要自增">为什么主键要自增</h4>
+<p>如果使用自增主键，那么<!-- raw HTML omitted --><strong>每次插入的新纪录都在原先记录的尾部按照顺序，添加到当前节点的索引后面，当一页快写满的时候，就会开辟一个新的页</strong><!-- raw HTML omitted -->。</p>
+<p>如果使用非自增主键（如果身份证号或学号等），由于每次插入主键的值近似于随机，因此每次新纪录都要被插到现有索引页得中间某个位置，MySQL不得不为了将新记录插到合适位置而移动数据，甚至目标页面可能已经被回写到磁盘上而从缓存中清掉，又要从磁盘上读回来，这增加了很多性能开销。同时频繁的移动、分页操作造成了大量的碎片，得到了不够紧凑的索引结构，后续不得不通过OPTIMIZE TABLE来重建表并优化填充页面。</p>
+<h3 id="非聚集索引二级索引">非聚集索引（二级索引）</h3>
+<p><strong>定义：该索引中索引的逻辑顺序与磁盘上行的物理存储顺序不同，一个表中可以拥有多个非聚集索引。</strong></p>
+<p>除了InnoDB的主键索引，在mysql中的其他索引形式都是非聚集索引。</p>
+<p>非聚集索引的查询需要多扫描一棵索引树，获取主键的值，再到根据主键的值到主键索引树搜索一次。这个过程称为<strong>回表</strong></p>
+<h2 id="索引优化的建议">索引优化的建议</h2>
+<h3 id="选择合适的长度主键">选择合适的长度主键</h3>
+<p><strong>主键长度越小，普通索引的叶子节点就越小，普通索引占用的空间也就越小</strong>。</p>
+<p>如果有些业务的场景需求</p>
+<ul>
+<li>只有一个索引</li>
+<li>该索引必须是唯一索引</li>
+</ul>
+<p>因为不存在回表的情况，可以不考虑主键索引的长度问题</p>
+<h3 id="利用覆盖索引避免回表">利用覆盖索引，避免回表</h3>
+<p>根据业务场景，在选择创建普通索引的字段时，让查询结果包含在非主键列的索引树中，这样可以在搜索二级索引时直接提供查询结果，不需要回表，减少树的搜索次数，显著提升查询性能。</p>
+<h3 id="利用最左前缀匹配">利用最左前缀匹配</h3>
+<p>在建立联合索引的时候，如何安排索引内的字段顺序。</p>
+<p>第一原则是，如果通过调整顺序，可以少维护一个索引，那么这个顺序往往就是需要优先考虑采用的</p>
+<h3 id="利用前缀索引优化字符串类型索引的长度">利用前缀索引，优化字符串类型索引的长度</h3>
+<p>使用前缀索引，选择合适的长度，既可以做到节省空间，又不用额外增加太多的查询成本。</p>
+<p>建立前缀索引时关注的是区分度，区分度越高越好。因为区分度越高，意味着重复的键值越少。因此，可以通过统计索引上有多少个不同的值来判断要使用多长的前缀。常用统计<code>SQL</code>如下</p>
+<pre><code>select count(distinct left(索引列,4)) from 创建索引的表
+</code></pre><p><strong>使用前缀索引就用不上覆盖索引对查询性能的优化了，这也是在选择是否使用前缀索引时需要考虑的一个因素。</strong></p>
+<h3 id="根据索引下推必要时进行数据库升级">根据索引下推，必要时进行数据库升级</h3>
+<p>满足最左前缀原则的时候，最左前缀可以用于在索引中定位记录。</p>
+<p>对于那些不符合最左前缀的部分：</p>
+<ul>
+<li>MySQL 5.6 需要一个个回表，到主键索引上找出数据行，再对比字段值。</li>
+<li>MySQL 5.6 引入的索引下推优化（index condition pushdown)， <strong>可以在索引遍历过程中，对索引中包含的字段先做判断，直接过滤掉不满足条件的记录，减少回表次数</strong>。</li>
+</ul>
+<h2 id="explain">EXPLAIN</h2>
+<p><a href="https://dev.mysql.com/doc/refman/8.0/en/explain-output.html">EXPLAIN的具体用法和字段含义</a>，其中key和rows是核心指标，key代表使用的索引，rows代表扫描的行数。绝大部分rows小的语句执行一定很快，所以优化语句基本上都是在优化rows。</p>
+<pre><code>The query cache is deprecated as of MySQL 5.7.20, and is removed in MySQL 8.0.
+</code></pre><p>5.7.20之前SQL优化之前，注意设置SQL_NO_CACHE</p>
+<pre><code>SELECT SQL_NO_CACHE id, name FROM customer;
+</code></pre><p>参考链接： <a href="https://dev.mysql.com/doc/refman/5.7/en/query-cache-in-select.html">https://dev.mysql.com/doc/refman/5.7/en/query-cache-in-select.html</a></p>
+<h2 id="索引失效情况">索引失效情况</h2>
+<ul>
+<li>
+<p>违反最左匹配原则</p>
+</li>
+<li>
+<p>在索引列上做任何操作</p>
+</li>
+<li>
+<p>使用不等于（!= 、&lt;&gt;）</p>
+</li>
+<li>
+<p>like 中以通配符开头<code>%abc</code></p>
+</li>
+</ul>
+
+        </div>
+
+        
+        
+        <div class="article-toc" >
+            <h3>Contents</h3>
+            <nav id="TableOfContents">
+  <ul>
+    <li><a href="#为什么需要索引">为什么需要索引</a></li>
+    <li><a href="#为什么索引采用btree">为什么索引采用B+Tree</a>
+      <ul>
+        <li><a href="#hash索引">Hash索引</a></li>
+        <li><a href="#平衡二叉树索引">平衡二叉树索引</a></li>
+        <li><a href="#b树与b树索引">B树与B+树索引</a></li>
+      </ul>
+    </li>
+    <li><a href="#索引相关名词">索引相关名词</a>
+      <ul>
+        <li><a href="#普通索引">普通索引</a></li>
+        <li><a href="#唯一索引">唯一索引</a></li>
+        <li><a href="#主键索引">主键索引</a></li>
+        <li><a href="#全文索引">全文索引</a></li>
+        <li><a href="#联合索引">联合索引</a></li>
+        <li><a href="#覆盖索引">覆盖索引</a></li>
+        <li><a href="#聚集索引聚簇索引">聚集索引（聚簇索引）</a></li>
+        <li><a href="#非聚集索引二级索引">非聚集索引（二级索引）</a></li>
+      </ul>
+    </li>
+    <li><a href="#索引优化的建议">索引优化的建议</a>
+      <ul>
+        <li><a href="#选择合适的长度主键">选择合适的长度主键</a></li>
+        <li><a href="#利用覆盖索引避免回表">利用覆盖索引，避免回表</a></li>
+        <li><a href="#利用最左前缀匹配">利用最左前缀匹配</a></li>
+        <li><a href="#利用前缀索引优化字符串类型索引的长度">利用前缀索引，优化字符串类型索引的长度</a></li>
+        <li><a href="#根据索引下推必要时进行数据库升级">根据索引下推，必要时进行数据库升级</a></li>
+      </ul>
+    </li>
+    <li><a href="#explain">EXPLAIN</a></li>
+    <li><a href="#索引失效情况">索引失效情况</a></li>
+  </ul>
+</nav>
+        </div>
+        
+        
+
+        
+
+
+        
+    </div>
+    
+<nav id="article-nav">
+    
+    
+</nav>
+
+
+</article>
+
+        
+    </section>
+    <footer id="footer">
+    <div class="outer">
+        <div id="footer-info" class="inner">
+            &copy; 2020 二十七号酒馆
+            <br />
+            Powered by <a href="https://gohugo.io" target="_blank">Hugo</a> with theme <a href="https://github.com/carsonip/hugo-theme-minos" target="_blank">Minos</a>
+        </div>
+    </div>
+    
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.9.0/styles/tomorrow-night.min.css" integrity="sha256-2wL88NKUqvJi/ExflDzkzUumjUM73mcK2gBvBBeLvTk=" crossorigin="anonymous" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.9.0/highlight.min.js" integrity="sha256-KbfTjB0WZ8vvXngdpJGY3Yp3xKk+tttbqClO11anCIU=" crossorigin="anonymous"></script>
+    <script>hljs.initHighlightingOnLoad();</script>
+
+    
+    <script>
+        document.getElementById('main-nav-toggle').addEventListener('click', function () {
+            var header = document.getElementById('header');
+            if (header.classList.contains('mobile-on')) {
+                header.classList.remove('mobile-on');
+            } else {
+                header.classList.add('mobile-on');
+            }
+        });
+    </script>
+</footer>
+
+</div>
+</body>
+</html>
